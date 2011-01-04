@@ -46,8 +46,7 @@ def generate_status(start, range, charset_option):
 	# last character, python powered
 	i = 0
 	while(i < range):
-		if(generate_next_step(start, charset)):
-			start.insert(0, charset[0])
+		generate_next_step(start, charset)
 		i += 1
 	# transform list to string
 	# because we store string
