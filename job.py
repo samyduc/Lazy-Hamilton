@@ -45,6 +45,30 @@ class GetJob:
 		if(ret == None):
 			return app.debug_string
 			
+		# searsh if current task timeout
+		entries = app.db.select('range', what="range_id, range_id_job, range_start, range_length", where="DATETIME(range_timestamp, 'now') > %s " % (str(app.range_timeout)))
+		
+		# give oldest task
+		for entry in entries:
+			#TODO
+			return "lol"
+		
+		# if no task
+		# searsh current job
+		entries = app.db.select('job', what="job_id, job_descriptor, job_task", where="job_maxclient <= job_client and job_status='fresh'")
+		
+		
+		
+		return
+		
+		
+		
+		
+		
+		
+		
+		
+		
 		
 		
 		

@@ -25,7 +25,7 @@ cookie_name = "id"
 cookie_age = 99999
 
 # in seconds
-job_timeout = 10
+range_timeout = 10
 
 db = web.database(dbn='sqlite', db='db.sqlite3')
 

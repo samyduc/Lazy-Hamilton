@@ -12,3 +12,4 @@ c.execute("SELECT * FROM job")
 
 for line in c:
 	print(line)
+
