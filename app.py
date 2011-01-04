@@ -26,6 +26,11 @@ cookie_age = 99999
 
 # in seconds
 range_timeout = 10
+# dict
+charset = {'a' : 'abcdefghijklmnopqrstuvwxyz',\
+	'A' : 'ABCDEFGHIJKLMNOPQRSTUVWXYZ',\
+	'0' : '0123456789',\
+	'*' : ' !\"#$%&\'()*+,-./:;<=>?@[\\]^_{|}~'}
 
 db = web.database(dbn='sqlite', db='db.sqlite3')
 

@@ -206,8 +206,6 @@ class ChClient:
 			if(letter != "r" and letter != "w" and letter != "x"):
 				return app.debug_string
 		
-		cookie = web.cookies().get(app.cookie_name)
-		
 		# update right
 		t = app.db.transaction()
 		try:
