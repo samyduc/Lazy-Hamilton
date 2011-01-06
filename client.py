@@ -119,7 +119,12 @@ def check_authentification(nickname, password):
 	else:
 		return True
 	
-	
+#
+# add new user
+# arg
+# 	nickname : name of the user
+#	password : password of the user (SHA-256 please)
+#				
 class AddClient:
 	def GET(self):
 		arg = web.input()
@@ -187,6 +192,12 @@ class Register:
 		
 		return "register"
 
+#
+# change credential for a user
+# arg
+# 	nickname : nickname to modify
+#	right : new credential (rwx)
+#			
 class ChClient:
 	def GET(self):
 		arg = web.input()
@@ -216,7 +227,12 @@ class ChClient:
 			t.commit()
 		
 		return "chclient"
-		
+
+#
+# Delete user
+# arg
+# 	nickname : nickname to delete
+#				
 class DelClient:
 	def GET(self):
 		arg = web.input()
@@ -240,7 +256,12 @@ class DelClient:
 			t.commit()
 		
 		return "delclient"
-		
+
+#
+# log out (from all computer)
+# arg
+# 	None
+#			
 class LogOut:
 	def GET(self): 
 		# check credential (session)

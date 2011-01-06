@@ -38,8 +38,8 @@ charset = {'a' : 'abcdefghijklmnopqrstuvwxyz',\
 db = web.database(dbn='sqlite', db='db.sqlite3')
 
 class index:
-	def GET(self, name=0):
-		return name
+	def GET(self):
+		return "Lazy-Hamilton"
 		
 if __name__ == "__main__": 
 	web.config.debug = True
