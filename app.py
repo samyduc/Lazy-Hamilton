@@ -13,9 +13,12 @@ urls = (
 	'/delclient', 'client.DelClient',
 	'/register', 'client.Register',
 	'/logout', 'client.LogOut',
+	'/showclient', 'client.ShowClient',
 	'/chclient', 'client.ChClient',
 	'/addjob', 'job.AddJob',
 	'/getjob', 'job.GetJob',
+	'/donejob', 'job.DoneJob',
+	'/showjob', 'job.ShowJob',
 )
 
 # config

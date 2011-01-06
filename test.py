@@ -12,3 +12,8 @@ c.execute("SELECT * FROM job")
 
 for line in c:
 	print(line)
+
+c.execute("SELECT * FROM range")	
+	
+for line in c:
+	print(line)

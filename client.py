@@ -230,8 +230,6 @@ class DelClient:
 		if(ret == None):
 			return app.debug_string
 		
-		cookie = web.cookies().get(app.cookie_name)
-		
 		# del user
 		t = app.db.transaction()
 		try:
@@ -262,7 +260,56 @@ class LogOut:
 			t.commit()
 		
 		return "logout"
+
+#
+# Show client or one client and all related range
+# arg
+#	(optionnal) id : id of a client
+#		
+class ShowClient:
+	def GET(self):
+		arg = web.input()
 		
+		if('id' not in arg):
+			# select everything
+			entries = app.db.select('client', what="client_nickname, client_email, client_time, client_cpu, client_credential, client_id")
+			
+			response = ""
+			
+			for entry in entries:
+				response += "\n" + "-"*20 + "\n"
+				response += str(entry)
+				response += "\n" + "-"*20 + "\n"
+			
+			return response
+			
+		else:
+			# select one client
+			entries = app.db.select('client', what="client_nickname, client_email, client_time, client_cpu, client_credential, client_id",\
+				where="client_id=$id", vars={'id': arg['id']})
+			
+			response = ""
+			
+			temp = list(entries)
+		
+			if(bool(temp) == False):
+				return app.debug_string
+			
+			j = temp[0]
+			
+			response += "\n" + "-"*20 + "\n"
+			response += str(j)
+			response += "\n" + "-"*20 + "\n"
+			
+			# select all related range
+			entries = app.db.select('range', what="*", where="range_id_client=$id", vars={'id': arg['id']})
+		
+			for entry in entries:
+				response += "\n" + "-"*20 + "\n"
+				response += str(entry)
+				response += "\n" + "-"*20 + "\n"
+			
+			return response
 
 		
 		
