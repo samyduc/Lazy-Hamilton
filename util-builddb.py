@@ -35,18 +35,19 @@ schema_job = "CREATE TABLE job(\
 # client_credential : rwx format
 # client_time : total cpu time given to the project
 # client_email : optionnal email for contact
-# client_cpu : current cpu power available from the client
+# client_cpu : current cpu power available from the client ->
+#	number of 2 md5 computation with one comparison per second
 # client_cookie : cookie used for authentication
 schema_client = "CREATE TABLE client(\
 	client_id INTEGER,\
 	client_nickname VARCHAR(32) NOT NULL,\
-	client_password VARCHAR(32) NOT NULL,\
+	client_password CHAR(64) NOT NULL,\
 	client_salt VARCHAR(3) NOT NULL,\
 	client_credential VARCHAR(3) NOT NULL,\
 	client_time INTEGER,\
 	client_email VARCHAR(40),\
 	client_cpu FLOAT,\
-	client_cookie VARCHAR(64),\
+	client_cookie CHAR(64),\
 	PRIMARY KEY(client_id)\
 	);"
 
@@ -109,6 +110,7 @@ if __name__ == "__main__":
 	
 	# create default admin
 	c.execute(build_req_default_admin())
+	print(build_req_default_admin())
 	
 	conn.commit()
 	conn.close()

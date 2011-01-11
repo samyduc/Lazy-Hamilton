@@ -48,7 +48,8 @@ def check_credential_cookie(credential):
 	if(cookie_id == None):
 		return None
 		
-	entries = app.db.select('client', what="client_cookie, client_credential", where="client_cookie='%s'" % (cookie_id))
+	entries = app.db.select('client', what="client_cookie, client_credential", \
+		where="client_cookie=$cookie", vars= {'cookie' : cookie_id})
 
 	# check if entry exists and compare value
 	temp = list(entries)
@@ -65,7 +66,8 @@ def check_credential_cookie(credential):
 
 # check credential from nickname
 def check_credential_nickname(credential, nickname):
-	entries = app.db.select('client', what="client_cookie, client_credential", where="client_nickname='%s'" % (nickname))
+	entries = app.db.select('client', what="client_cookie, client_credential", \
+		where="client_nickname=$nickname", vars= {'nickname' : nickname})
 
 	# nickname must be unique
 	# ugly hack with list because sqlite do not return the number of row (from official mailing list)
@@ -82,9 +84,10 @@ def check_credential_nickname(credential, nickname):
 		cookie =  generate_cookie(nickname)
 		# save new cookie in database
 		t = app.db.transaction()
-		app.db.update('client', client_cookie=cookie, where='client_nickname="%s"' % (nickname))
+		
 		try:
-			app.db.update('client', client_cookie=cookie, where='client_nickname="%s"' % (nickname))
+			app.db.update('client', client_cookie=cookie, \
+				where="client_nickname=$nickname", vars= {'nickname' : nickname})
 		except:
 			t.rollback()
 		else:
@@ -103,7 +106,8 @@ def check_credential_basic(credential, entry):
 	
 # check authentification from login / password
 def check_authentification(nickname, password):
-	entries = app.db.select('client', what="client_password, client_salt", where="client_nickname='%s'" % (nickname))
+	entries = app.db.select('client', what="client_password, client_salt", \
+		where="client_nickname=$nickname", vars={'nickname':nickname})
 	
 	temp = list(entries)
 	
@@ -139,7 +143,7 @@ class AddClient:
 			return app.debug_string
 		
 		# insure unicity of nickname
-		entries = app.db.select('client', what="client_nickname", where="client_nickname='%s'" % (arg['nickname']))
+		entries = app.db.select('client', what="client_nickname", where="client_nickname=$nickname", vars= {'nickname' : arg['nickname']})
 		if(bool(entries) != False):
 			return app.debug_string
 		
@@ -148,7 +152,8 @@ class AddClient:
 		
 		t = app.db.transaction()
 		try:
-			app.db.insert('client', client_nickname=arg['nickname'], client_password=password, client_salt=salt, client_credential="x")
+			app.db.insert('client', client_nickname=arg['nickname'], client_password=password, \
+			client_salt=salt, client_credential="x", client_time=0)
 		except:
 			t.rollback()
 		else:
@@ -183,7 +188,8 @@ class Register:
 		# save cpu power
 		t = app.db.transaction()
 		try:
-			app.db.update('client', client_cpu=float(arg['cpu']), where="client_cookie='%s'" % (cookie))
+			app.db.update('client', client_cpu=float(arg['cpu']), \
+				where="client_cookie=$cookie", vars= {'cookie' : cookie})
 		except:
 			t.rollback()
 		else:
@@ -196,7 +202,7 @@ class Register:
 # change credential for a user
 # arg
 # 	nickname : nickname to modify
-#	right : new credential (rwx)
+#	credential : new credential (rwx)
 #			
 class ChClient:
 	def GET(self):
@@ -204,7 +210,7 @@ class ChClient:
 		
 		# check parameters
 		if('nickname' not in arg or \
-			'right' not in arg):
+			'credential' not in arg):
 			return app.debug_string
 			
 		# check credential (session)
@@ -213,14 +219,15 @@ class ChClient:
 			return app.debug_string
 			
 		# be sure that new right are ok
-		for letter in arg['right']:
+		for letter in arg['credential']:
 			if(letter != "r" and letter != "w" and letter != "x"):
 				return app.debug_string
 		
 		# update right
 		t = app.db.transaction()
 		try:
-			app.db.update('client', client_credential=arg['right'], where="client_nickname='%s'" % (arg['nickname']))
+			app.db.update('client', client_credential=arg['credential'], \
+				where="client_nickname=$nickname", vars= { 'nickname': arg['nickname']})
 		except:
 			t.rollback()
 		else:
@@ -249,7 +256,7 @@ class DelClient:
 		# del user
 		t = app.db.transaction()
 		try:
-			app.db.delete('client', where="client_nickname='%s'" % (arg['nickname']))
+			app.db.delete('client', where="client_nickname=$nickname", vars={'nickname' : arg['nickname']})
 		except:
 			t.rollback()
 		else:
@@ -274,7 +281,8 @@ class LogOut:
 		# delete cookie in database
 		t = app.db.transaction()
 		try:
-			app.db.update('client', client_cookie=None, where="client_cookie='%s'" % (cookie))
+			app.db.update('client', client_cookie=None, \
+				where="client_cookie=$cookie", vars= {'cookie' : cookie})
 		except:
 			t.rollback()
 		else:
@@ -291,9 +299,15 @@ class ShowClient:
 	def GET(self):
 		arg = web.input()
 		
+		# check credential (session)
+		ret = check_credential(["r"], "cookie")
+		if(ret == None):
+			return app.debug_string
+		
 		if('id' not in arg):
 			# select everything
-			entries = app.db.select('client', what="client_nickname, client_email, client_time, client_cpu, client_credential, client_id")
+			entries = app.db.select('client', \
+				what="client_nickname, client_email, client_time, client_cpu, client_credential, client_id", order="client_time DESC")
 			
 			response = ""
 			

@@ -37,24 +37,32 @@ def generate_next_step(word, charset):
 	finally:
 		return False
 # generate new status from job given
-def generate_status(start, range, charset_option):
+def generate_status(start, size, charset_option):
 	charset = build_charset(charset_option)
-	
-	# transform string to list
-	# because string are imutable
-	start = list(start)
-	# last character, python powered
-	i = 0
-	while(i < range):
-		generate_next_step(start, charset)
-		i += 1
-	# transform list to string
-	# because we store string
-	return "".join(start)
+	i = -1
+	trueSize = 1
+	while(size > len(charset)):
+		if (len(start) < -i):
+			start.append(charset[0])
+		size = size/len(charset)
+		i = i-1
+		trueSize = trueSize*len(charset)
+		
+	# the size is now less than the charset length
+	trueSize = trueSize*size
+	temp = start[:len(start)+i+1]
+	for j in range(0, size):
+		generate_next_step(temp, charset)
+		
+	for value in start[i+1:]:
+		temp.append(value)
+
+	return "".join(temp), trueSize
 
 #
 # Add a new job
 # arg
+#	name : name of the job
 # 	task : description of the task
 #	descriptor : charset:salt:range
 #	maxclient : maxclient for the job
@@ -64,7 +72,8 @@ class AddJob:
 		arg = web.input()
 
 		# check parameters
-		if('task' not in arg or \
+		if( 'name' not in arg or \
+			'task' not in arg or \
 			'descriptor' not in arg or \
 			'maxclient' not in arg):
 			return app.debug_string
@@ -77,10 +86,12 @@ class AddJob:
 		# add job
 		t = app.db.transaction()
 		try:
-			app.db.insert('job', job_maxclient=int(arg['maxclient']), job_task=arg['task'],\
-				job_descriptor=arg['descriptor'], job_status="fresh", job_client=0)
+			app.db.insert('job', job_maxclient=int(arg['maxclient']), job_name=arg['name'], \
+				job_task=arg['task'], job_descriptor=arg['descriptor'], job_status="fresh", \
+				job_client=0)
 		except:
 			t.rollback()
+			return app.debug_string
 		else:
 			t.commit()
 		
@@ -94,9 +105,114 @@ class AddJob:
 # else get a new range
 #		
 class GetJob:
+
+	# update score depending on finished range
+	def update_score(self, arg):
+		entries = app.db.query("SELECT * FROM range JOIN client ON range.range_id_client = client.client_id and range.range_id = $id", \
+			vars={'id': arg['id']})
+		temp = list(entries)
+		if(bool(temp) != False):
+			score = temp[0].client_time
+			score += temp[0].range_length / app.score_down + 1 # minimum increment is one
+			app.db.update('client', client_time=score, where="client_id=$id", vars={ 'id' : temp[0].client_id})
+			
+		# delete
+		app.db.delete('range', where="range_id=$id", vars={ 'id' : arg['id']})
+		
+	# r : recycle range
+	def recycling(self, r):
+		# select related job
+		# peak the first one
+		entry = app.db.select('job', what="job_id, job_name, job_descriptor, job_task, job_status", \
+			where="job_id=$id", vars={'id':r.range_id_job})
+				
+		temp = list(entry)
+			
+		if(bool(temp) == False):
+			return app.debug_string
+		j = temp[0]
+			
+		# update current range to change id with current client
+		cookie = web.cookies().get(app.cookie_name)
+		
+		entries = app.db.select('client', what="client_id, client_cpu", \
+				where="client_cookie=$cookie", vars= {'cookie' : cookie})
+		temp = list(entries)
+		if(bool(temp) == False):
+			return app.debug_string
+		c = temp[0]
+		app.db.update('range', range_id_client=c.client_id, range_timestamp="now()", \
+				where="range_id=$id", vars= {'id' : r.range_id})
+		
+		var_descriptor = j.job_descriptor.split(':', 2)
+		
+		return r.range_id, r.range_length, j.job_task, var_descriptor[0], var_descriptor[1], r.range_start
+			
+	def craft(self):
+		entries = app.db.select('job', what="job_id, job_name, job_descriptor, job_task, job_status", \
+					where="job_maxclient >= job_client and job_status='fresh'", order="job_id")
+			
+		# peek the first one
+		temp = list(entries)
+			
+		if(bool(temp) == False):
+			return app.debug_string
+		j = temp[0]
+
+		# peek client id and cpu capabilities
+		cookie = web.cookies().get(app.cookie_name)
+		entries = app.db.select('client', what="client_id, client_cpu", \
+					where="client_cookie=$cookie", vars= {'cookie' : cookie})
+			
+		temp = list(entries)
+			
+		if(bool(temp) == False):
+			return app.debug_string
+		c = temp[0]
+			
+		# must be compute with cpu value
+		range_value = int(c.client_cpu*app.average_range_time)
+		
+		# compute settings from job_descriptor
+		# charset:salt:range
+		var_descriptor = j.job_descriptor.split(':', 2)
+			
+		start = var_descriptor[2]
+		
+		temp = list(var_descriptor[2])
+		var_descriptor[2], range_value = generate_status(temp, range_value, var_descriptor[0])
+		
+		# create new range (with default value for the moment)
+		t = app.db.transaction()
+		row_id = 0
+		
+		try:
+			row_id = app.db.insert('range', range_id_client=c.client_id, range_id_job=j.job_id, range_start=start, \
+						range_length=range_value, range_timestamp='NOW()')
+		except:
+			t.rollback()
+			return app.debug_string 
+		else:
+			t.commit()
+				
+		# awful hack to get the last id
+		# bug : raw_id is always empty
+		entries = app.db.select('range', what="range_id", \
+					where="range_id_client=$id", vars={'id':c.client_id}, order="range_timestamp desc", limit=1)
+		temp = list(entries)
+		if(bool(temp) == False):
+			return app.debug_string
+		r = temp[0]
+			
+		# change job status
+		app.db.update('job', job_descriptor=":".join(var_descriptor), \
+			where="job_id=$id", vars= {'id':j.job_id})
+			
+		return r.range_id, range_value, j.job_task, var_descriptor[0], var_descriptor[1], start
+
 	def GET(self):
 		arg = web.input()
-		
+		recycle = False
 		# check credential (session)
 		ret = client.check_credential(["x"], "cookie")
 		if(ret == None):
@@ -104,61 +220,31 @@ class GetJob:
 		
 		# delete old task
 		if('id' in arg):
-			app.db.delete('range', where="range_id=$id", vars={ 'id' : arg['id']})
-		
-		# searsh if current task timeout
-		entries = app.db.select('range', what="range_id, range_id_job, range_start, range_length", where="DATETIME(range_timestamp, 'now') > %s " % (str(app.range_timeout)))
-		
-		# give oldest task
-		for entry in entries:
-			#TODO
-			return "lol"
-		
-		# if no task
-		# search current job
-		entries = app.db.select('job', what="job_id, job_descriptor, job_task, job_status", where="job_maxclient >= job_client and job_status<>'done'")
-		
-		# peek the first one
-		temp = list(entries)
-		
-		if(bool(temp) == False):
-			return app.debug_string
-		j = temp[0]
-		
-		# peek client id and cpu capabilities
-		cookie = web.cookies().get(app.cookie_name)
-		entries = app.db.select('client', what="client_id, client_cpu", where="client_cookie='%s'" % (cookie))
+			self.update_score(arg)
+			
+		# search if current task timeout
+		entries = app.db.select('range', what="range_id, range_id_job, range_start, range_length", \
+			where="LOCALTIMESTAMP - range_timestamp > interval '%s' " % (app.range_timeout), \
+			order="range_timestamp", limit=1)
 		
 		temp = list(entries)
+		# if timeout
+		if(bool(temp) != False):
+			id, length, task, charset, salt, start = self.recycling(temp[0])
+		else:
+			id, length, task, charset, salt, start = self.craft()
 		
-		if(bool(temp) == False):
-			return app.debug_string
-		c = temp[0]
-		
-		# compute settings from job_descriptor
-		# charset:salt:range
-		var_descriptor = j.job_descriptor.split(':', 2)
-		
-		# must be compute with cpu value
-		range_value = 500000
-		
-		# create new range (with default value for the moment)
-		row_id = app.db.insert('range', range_id_client=c.client_id, range_id_job=j.job_id, range_start=var_descriptor[2], range_length=range_value, range_timestamp="strftime('%s','now')")
-
 		# render xml response
 		web.header('Content-Type', 'text/xml')
 		
 		response = "<range>\
 			<id>%s</id>\
-			<start>%s</start>\
 			<length>%s</length>\
+			<task>%s</task>\
 			<charset>%s</charset>\
 			<salt>%s</salt>\
-			</range>" % (row_id, var_descriptor[2], range_value, var_descriptor[0], var_descriptor[1])
-			
-		# change job status
-		var_descriptor[2] = generate_status(var_descriptor[2], range_value, var_descriptor[0])
-		app.db.update('job', job_descriptor="%s" % (":".join(var_descriptor)), where="job_id=%s" % (j.job_id))
+			<start>\"%s\"</start>\
+			</range>" % (id, length, task, charset, salt, start)
 		
 		return response
 
@@ -173,7 +259,7 @@ class DoneJob:
 		arg = web.input()
 		
 		# check credential (session)
-		ret = client.check_credential(["r"], "cookie")
+		ret = client.check_credential(["x"], "cookie")
 		if(ret == None):
 			return app.debug_string
 		
@@ -220,6 +306,53 @@ class DoneJob:
 		
 		return "donejob"
 
+# Pause a given job
+# arg
+#	id : job's id
+#
+class PauseJob:
+	def GET(self):
+		arg = web.input()
+		
+		# check credential (session)
+		ret = client.check_credential(["w"], "cookie")
+		if(ret == None):
+			return app.debug_string
+		
+		# do not pause job already done
+		entries = app.db.select('job', what="job_status", where="job_id=$id", vars={'id':arg['id']})
+		
+		temp = list(entries)
+		
+		if(bool(temp) == False):
+			return app.debug_string
+			
+		j = temp[0]	
+			
+		if(j.job_status == "done"):
+			return app.debug_string
+		
+		app.db.update('job', job_status="paused", where="job_id=$id", vars={'id':arg['id']})
+		
+		return "pausejob"
+
+# Unpause a given job
+# arg
+#	id : job's id
+#
+class UnpauseJob:
+	def GET(self):
+		arg = web.input()
+		
+		# check credential (session)
+		ret = client.check_credential(["w"], "cookie")
+		if(ret == None):
+			return app.debug_string
+		
+		app.db.update('job', job_status="fresh", where="job_id=$id", vars={'id':arg['id']})
+		
+		return "unpausejob"
+		
 #
 # Show job or one job and all related range
 # arg
@@ -229,9 +362,14 @@ class ShowJob:
 	def GET(self):
 		arg = web.input()
 		
+		# check credential (session)
+		ret = client.check_credential(["r"], "cookie")
+		if(ret == None):
+			return app.debug_string
+		
 		if('id' not in arg):
 			# select everything
-			entries = app.db.select('job', what="*")
+			entries = app.db.select('job', what="*", order="job_status")
 			
 			response = ""
 			

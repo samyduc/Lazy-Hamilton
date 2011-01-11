@@ -1,0 +1,99 @@
+$def with (entries)
+<html>
+<head>
+        <title>Lazy-Hamilton</title>
+        <style>
+            body{
+                background: #6699cc;
+                color: #444;
+            }
+            
+            a, a:visited, a:link, a:active{
+                color: #333;
+            }
+            
+            a:hover{
+                color: #00f;
+            }
+        
+            .charts_container{
+                width: 900px;
+                height: 420px;
+                margin: 10px auto;
+            }
+            
+            .chart_container_centered{
+                text-align: center;
+                width: 900px;
+                height: 420px;
+                margin: 10px auto;
+            }
+            
+            .chart_container{
+                width: 400px;
+                height: 400px;
+                margin: 0px 25px;
+                float: left;
+            }
+            
+            .footer{
+                font-size: small;
+                text-align: right;
+            }
+		</style>
+	<script type="application/javascript" src="script/awesomechart.js"> </script>
+</head>
+
+<body>
+	
+	<center><h1>Lazy-Hamilton</h1></center>
+	
+	<div class="chart_container_centered">
+            
+		<canvas id="stat_horizontal" width="400" height="400">
+			Your web-browser does not support the HTML 5 canvas element.
+		</canvas>
+                
+	</div>
+	
+	<div class="chart_container_centered">
+            
+		<canvas id="stat_pie" width="400" height="400">
+			Your web-browser does not support the HTML 5 canvas element.
+		</canvas>
+                
+	</div>
+	
+
+
+	<script type="application/javascript">
+		var stat_h = new AwesomeChart('stat_horizontal');
+		//stat_h.chartType = "horizontal bars";
+		stat_h.title = "Power users top ranking";
+		colors = ["#ff6600", "#663333"];
+		stat_h.data = [];
+		stat_h.labels = [];
+		
+		var stat_pie = new AwesomeChart('stat_pie');
+		stat_pie.chartType = "pie";
+		stat_pie.title = "Camembert du parlement du lol";
+		stat_pie.data = [];
+		stat_pie.labels = [];
+
+		$for entry in entries:
+			stat_h.data.push($entry.client_time);
+			stat_h.labels.push("$entry.client_nickname");
+			stat_pie.data.push($entry.client_time);
+			stat_pie.labels.push("$entry.client_nickname");
+
+		stat_pie.colors = ['#006CFF', '#FF6600', '#34A038', '#945D59', '#93BBF4', '#F493B8'];
+		stat_pie.randomColors = true;
+		stat_h.barFillStyle = colors[0];
+		stat_h.labelFillStyle = colors[1];
+		stat_h.draw();
+		stat_pie.draw();
+		
+	</script>
+	
+</body>
+</html>
