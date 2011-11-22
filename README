@@ -1,0 +1,19 @@
+Lazy Hamilton
+=============
+
+Distributed computing with a web service to break (double) hashed password.
+
+There is a scoring system in the initial release to show the amount of cpu shared by each participant.
+
+TODO
+----
+
+- Move from Postgres to Redis.
+
+- Release the client code (running on pypy).
+
+Author
+------
+
+Samy Duc aka nobunaga.duc@gmail.com
+
